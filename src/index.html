@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: viny: data: blob:; img-src 'self' viny: data: blob:; media-src 'self' viny: data: blob:; connect-src 'self' viny: data: blob:; style-src 'self' file: 'unsafe-inline'; script-src 'self' file:">
+<title>Viny</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="titlebar"><span class="tb-logo">Viny</span></div>
+
+<div id="stageWrap">
+  <canvas id="bg"></canvas>
+  <div id="stage">
+    <canvas id="deck"></canvas>
+
+    <!-- POWER -->
+    <div class="ctl" id="power" title="Питание">
+      <svg class="arc" viewBox="0 0 90 30" width="90" height="30">
+        <path d="M24 24 Q45 6 66 24" fill="none" stroke="rgba(50,52,56,.55)" stroke-width="1.4"/>
+        <path d="M24 24 l1 -6 M24 24 l6 -1" stroke="rgba(50,52,56,.55)" stroke-width="1.4" fill="none"/>
+        <path d="M66 24 l-1 -6 M66 24 l-6 -1" stroke="rgba(50,52,56,.55)" stroke-width="1.4" fill="none"/>
+      </svg>
+      <span class="eng off">OFF</span><span class="eng on">ON</span>
+      <div class="knob-well"></div>
+      <div class="knob" id="knob"><i class="dot"></i></div>
+      <span class="eng label">POWER</span>
+    </div>
+
+    <!-- START / STOP -->
+    <div class="ctl" id="startBtn" title="Старт / Стоп (пробел)">
+      <div class="ss-ring"><div class="ss-btn"></div></div>
+      <span class="eng label">START/STOP</span>
+    </div>
+
+    <!-- PITCH -->
+    <div class="ctl" id="pitch">
+      <div class="slot" id="slot" title="Питч ±8% (двойной клик - сброс)">
+        <div class="groove"></div>
+        <div class="fader" id="fader"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="scale">
+        <span class="pm">+</span>
+        <span>4</span><span>3</span><span>2</span><span>1</span>
+        <span class="zero"><i class="led" id="pitchLed"></i></span>
+        <span>1</span><span>2</span><span>3</span><span>4</span>
+        <span class="pm">−</span>
+      </div>
+      <div class="pitch-val eng" id="pitchVal">0.0%</div>
+    </div>
+
+    <!-- LCD plate -->
+    <div class="plate" id="plate">
+      <button class="plate-btn" id="openShelf" title="Витрина дисков">
+        <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width=".8" opacity=".6"/></svg>
+      </button>
+      <div class="lcd" id="lcd">
+        <div class="lcd-idx" id="lcdIdx">--</div>
+        <div class="lcd-main">
+          <div class="lcd-title" id="lcdTitle"></div>
+          <div class="lcd-bar"><i id="lcdBar"></i></div>
+        </div>
+        <div class="lcd-time" id="lcdTime"></div>
+      </div>
+      <button class="plate-btn" id="prevBtn" title="Предыдущий трек (←)"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M7 5v14M19 5l-9 7 9 7z" fill="currentColor" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button class="plate-btn" id="nextBtn" title="Следующий трек (→)"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M17 5v14M5 5l9 7-9 7z" fill="currentColor" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button class="plate-btn" id="settingsBtn" title="Настройки звука">
+        <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+      </button>
+    </div>
+
+    <div class="settings-pop hidden" id="settingsPop">
+      <h4>Звук</h4>
+      <label>Громкость <input type="range" min="0" max="1" step="0.01" data-k="volume"></label>
+      <label>Треск и шум поверхности <input type="range" min="0" max="1" step="0.01" data-k="noise"></label>
+      <label>Детонация (wow &amp; flutter) <input type="range" min="0" max="1" step="0.01" data-k="wow"></label>
+      <label>Тёплая «ламповая» окраска <input type="range" min="0" max="1" step="0.01" data-k="tone"></label>
+      <p class="keys">Пробел - старт/стоп · L - поднять/опустить иглу · ←/→ - треки · D - витрина</p>
+    </div>
+  </div>
+</div>
+
+<div id="overlayRoot"></div>
+<div id="toasts"></div>
+
+<script src="mock.js"></script>
+<script src="vinyl.js"></script>
+<script src="metal.js"></script>
+<script src="audio.js"></script>
+<script src="deck.js"></script>
+<script src="cropper.js"></script>
+<script src="shelf.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
