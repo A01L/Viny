@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('viny', {
   importImage: (id, src, kind) => ipcRenderer.invoke('disk:importImage', id, src, kind),
   writeImage: (id, kind, dataUrl) => ipcRenderer.invoke('disk:writeImage', id, kind, dataUrl),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch { return file.path || null; } },
+  exportDisk: (disk) => ipcRenderer.invoke('disk:export', disk),
+  importDisk: (filePath) => ipcRenderer.invoke('disk:import', filePath || null),
+  pendingOpen: () => ipcRenderer.invoke('pending:open'),
+  onOpenViny: (cb) => ipcRenderer.on('open-viny', (_e, p) => cb(p)),
   openExternal: (url) => ipcRenderer.invoke('open:external', url),
   setTitleBar: (color, symbolColor) => ipcRenderer.invoke('win:overlay', color, symbolColor),
   mediaUrl: (id, file) => `viny://media/disks/${encodeURIComponent(id)}/${encodeURIComponent(file)}`

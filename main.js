@@ -5,6 +5,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const crypto = require('crypto');
 const { pathToFileURL } = require('url');
+const { writeZip, openZip } = require('./archive');
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'viny', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true, bypassCSP: true } }
@@ -60,7 +61,23 @@ function createWindow() {
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); if (/^https:/.test(url)) shell.openExternal(url); } });
 }
 
+/* ---------- .viny files opened from Explorer ---------- */
+const pendingOpen = [];
+const vinyArgs = (argv) => argv.filter((a) => /\.viny$/i.test(a) && fs.existsSync(a));
+pendingOpen.push(...vinyArgs(process.argv));
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+app.on('second-instance', (_e, argv) => {
+  const files = vinyArgs(argv);
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+    for (const f of files) win.webContents.send('open-viny', f);
+  }
+});
+
 app.whenReady().then(async () => {
+  if (!gotLock) return;
   await fsp.mkdir(path.join(LIB(), 'disks'), { recursive: true });
   protocol.handle('viny', (req) => {
     const u = new URL(req.url);
@@ -143,4 +160,110 @@ ipcMain.handle('win:overlay', (_e, color, symbolColor) => {
 ipcMain.handle('open:external', (_e, url) => {
   if (/^https:\/\/github\.com\//.test(String(url))) shell.openExternal(url);
   return true;
+});
+
+/* ---------- export / import of a single record (.viny) ---------- */
+const FORMAT = 'viny-record';
+const FILE_KEYS = ['labelImage', 'labelSrc', 'sleeveImage', 'sleeveSrc'];
+const safeName = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+
+ipcMain.handle('pending:open', () => pendingOpen.splice(0));
+
+ipcMain.handle('disk:export', async (_e, disk) => {
+  const base = safeName([disk.artist, disk.title].filter(Boolean).join(' - ')) || 'Viny record';
+  const r = await dialog.showSaveDialog(win, {
+    title: 'Экспорт пластинки',
+    defaultPath: path.join(app.getPath('documents'), base + '.viny'),
+    filters: [{ name: 'Пластинка Viny', extensions: ['viny'] }]
+  });
+  if (r.canceled || !r.filePath) return null;
+  const dir = diskDir(disk.id);
+  const meta = JSON.parse(JSON.stringify(disk));
+  delete meta.id;
+  const files = [];
+  const add = (f) => {
+    if (!f) return null;
+    const name = path.basename(f);
+    if (!fs.existsSync(path.join(dir, name))) return null;
+    if (!files.includes(name)) files.push(name);
+    return name;
+  };
+  for (const k of FILE_KEYS) meta[k] = add(meta[k]);
+  meta.tracks = (meta.tracks || []).map((t) => ({ ...t, file: add(t.file) })).filter((t) => t.file);
+  const manifest = { format: FORMAT, version: 1, app: 'Viny ' + app.getVersion(), exported: new Date().toISOString(), disk: meta };
+  await writeZip(r.filePath, [
+    { name: 'manifest.json', data: Buffer.from(JSON.stringify(manifest, null, 2), 'utf8') },
+    ...files.map((f) => ({ name: 'files/' + f, path: path.join(dir, f) }))
+  ]);
+  return { path: r.filePath, name: path.basename(r.filePath), tracks: meta.tracks.length };
+});
+
+ipcMain.handle('disk:import', async (_e, filePath) => {
+  if (!filePath) {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Импорт пластинки',
+      properties: ['openFile'],
+      filters: [{ name: 'Пластинка Viny', extensions: ['viny'] }]
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    filePath = r.filePaths[0];
+  }
+  const zip = await openZip(filePath);
+  const id = Date.now().toString(36) + rid(3);
+  const dir = diskDir(id);
+  try {
+    if (!zip.names.includes('manifest.json')) throw new Error('Это не пластинка Viny: нет описания диска');
+    let manifest;
+    try { manifest = JSON.parse((await zip.read('manifest.json')).toString('utf8')); }
+    catch { throw new Error('Описание диска повреждено'); }
+    if (!manifest || manifest.format !== FORMAT || !manifest.disk) throw new Error('Это не пластинка Viny');
+    if (manifest.version > 1) throw new Error('Пластинка создана в более новой версии Viny');
+    const src = manifest.disk;
+    await fsp.mkdir(dir, { recursive: true });
+    const extracted = new Map();
+    const take = async (f, allowed) => {
+      if (!f || typeof f !== 'string') return null;
+      const name = path.basename(f);
+      const ext = path.extname(name).slice(1).toLowerCase();
+      if (!allowed.includes(ext) || !zip.names.includes('files/' + name)) return null;
+      if (!extracted.has(name)) {
+        await fsp.writeFile(path.join(dir, name), await zip.read('files/' + name));
+        extracted.set(name, true);
+      }
+      return name;
+    };
+    const str = (v, n = 100) => (typeof v === 'string' ? v.slice(0, n) : '');
+    const color = (v, d) => (/^#[0-9a-f]{6}$/i.test(v || '') ? v : d);
+    const disk = {
+      id,
+      title: str(src.title) || 'Без названия',
+      artist: str(src.artist),
+      vinylColor: /^[a-z]+$/.test(src.vinylColor || '') ? src.vinylColor : 'black',
+      labelColor: color(src.labelColor, '#f2efe8'),
+      labelText: src.labelText !== false,
+      labelTextOnImage: !!src.labelTextOnImage,
+      labelImage: await take(src.labelImage, IMAGE_EXT),
+      labelSrc: await take(src.labelSrc, IMAGE_EXT),
+      labelCrop: src.labelCrop && typeof src.labelCrop === 'object' ? src.labelCrop : null,
+      sleeveColor: color(src.sleeveColor, '#2b2d33'),
+      sleeveImage: await take(src.sleeveImage, IMAGE_EXT),
+      sleeveSrc: await take(src.sleeveSrc, IMAGE_EXT),
+      sleeveCrop: src.sleeveCrop && typeof src.sleeveCrop === 'object' ? src.sleeveCrop : null,
+      sleeveText: src.sleeveText !== false,
+      tracks: [],
+      created: Date.now(),
+      rev: 1
+    };
+    for (const t of (Array.isArray(src.tracks) ? src.tracks : []).slice(0, 15)) {
+      const file = await take(t && t.file, AUDIO_EXT);
+      if (!file) continue;
+      disk.tracks.push({ id: rid(4), title: str(t.title) || 'Без названия', file, duration: Number(t.duration) || null });
+    }
+    return { disk };
+  } catch (err) {
+    await fsp.rm(dir, { recursive: true, force: true });
+    throw err;
+  } finally {
+    await zip.close();
+  }
 });

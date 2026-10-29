@@ -61,15 +61,17 @@ const Shelf = {
       <div class="shelf-head">
         <h1>Витрина</h1><span class="count"></span><div class="sp"></div>
         <a class="git-engrave" href="https://github.com/A01L" title="github.com/A01L">Git: A01L</a>
+        <button class="btn" data-a="import" title="Добавить пластинку из файла .viny">Импорт</button>
         <button class="btn primary" data-a="new">Создать диск</button>
         <button class="icon-btn" data-a="close" title="Закрыть (Esc)">×</button>
       </div>
-      <div class="shelf-scroll"><div class="shelf-grid"></div><div class="empty-shelf" hidden>Здесь пока пусто. Создайте первую пластинку - загрузите до 15 треков и оформите яблоко и обложку.</div></div>`;
+      <div class="shelf-scroll"><div class="shelf-grid"></div><div class="empty-shelf" hidden>Здесь пока пусто. Создайте первую пластинку - загрузите до 15 треков и оформите яблоко и обложку. Или импортируйте готовую из файла .viny (можно просто перетащить его в окно).</div></div>`;
     document.getElementById('overlayRoot').appendChild(o);
     this.el = o;
     o.querySelector('[data-a=close]').onclick = () => this.close();
     o.querySelector('.git-engrave').onclick = (e) => { e.preventDefault(); App.engine.uiClick('press'); window.viny.openExternal('https://github.com/A01L'); };
     o.querySelector('[data-a=new]').onclick = () => Editor.open(null);
+    o.querySelector('[data-a=import]').onclick = () => App.importArchive();
     this.render();
   },
   close() {
@@ -130,6 +132,7 @@ const Detail = {
           <button class="btn primary" data-a="play">▶ Играть</button>
           <button class="btn" data-a="put">Поставить на проигрыватель</button>
           <button class="btn" data-a="edit">Редактировать</button>
+          <button class="btn" data-a="export" title="Сохранить пластинку в файл .viny">Экспорт</button>
           <span style="flex:1"></span>
           <button class="btn danger" data-a="del">Удалить</button>
         </div>
@@ -149,6 +152,7 @@ const Detail = {
     m.querySelector('[data-a=play]').onclick = () => { App.playDisk(d.id, 0); this.close(); Shelf.close(); };
     m.querySelector('[data-a=put]').onclick = () => { App.putDisk(d.id); this.close(); Shelf.close(); };
     m.querySelector('[data-a=edit]').onclick = () => { this.close(); Editor.open(d); };
+    m.querySelector('[data-a=export]').onclick = () => App.exportDisk(d.id);
     m.querySelector('[data-a=del]').onclick = async () => {
       if (await confirmBox('Удалить пластинку?', `«${d.title || 'Без названия'}» и все её треки будут удалены без возможности восстановления.`)) {
         this.close(); await App.deleteDisk(d.id);

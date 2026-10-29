@@ -30,6 +30,26 @@ const App = {
     this.lib.current = id; this.save();
   },
   playDisk(id, track = 0) { this.putDisk(id, true, track); },
+  async exportDisk(id) {
+    const d = this.diskById(id); if (!d) return;
+    try {
+      const r = await window.viny.exportDisk(d);
+      if (r) toast(`Сохранено: ${r.name}`);
+    } catch (e) { console.error(e); toast('Не удалось экспортировать: ' + (e.message || e), true); }
+  },
+  async importArchive(filePath) {
+    try {
+      const r = await window.viny.importDisk(filePath);
+      if (!r) return;
+      await this.upsertDisk(r.disk);
+      toast(`Пластинка «${r.disk.title}» добавлена на витрину`);
+      Shelf.open(); Shelf.render();
+      Detail.open(r.disk.id);
+    } catch (e) {
+      console.error(e);
+      toast('Не удалось импортировать: ' + String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), true);
+    }
+  },
 
   async init() {
     try { applyUiTextures(); } catch (e) { console.warn(e); }
@@ -46,6 +66,9 @@ const App = {
     const cur = this.lib.current && this.diskById(this.lib.current);
     if (cur) this.deck.setDisk(cur);
     this.bindUi();
+    // .viny files passed on start-up or opened later from Explorer
+    if (window.viny.onOpenViny) window.viny.onOpenViny((p) => this.importArchive(p));
+    if (window.viny.pendingOpen) for (const p of await window.viny.pendingOpen()) await this.importArchive(p);
   },
 
   bindUi() {
@@ -109,5 +132,11 @@ const App = {
 window.App = App;
 // never let a dropped file navigate the window away
 window.addEventListener('dragover', (e) => e.preventDefault());
-window.addEventListener('drop', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (Editor.isOpen || !e.dataTransfer) return;
+  for (const f of e.dataTransfer.files) {
+    if (/\.viny$/i.test(f.name)) { const p = window.viny.pathForFile(f); if (p) App.importArchive(p); }
+  }
+});
 window.addEventListener('DOMContentLoaded', () => App.init());

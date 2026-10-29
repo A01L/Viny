@@ -35,6 +35,10 @@ if (!window.viny) {
     writeImage: async (id, kind, dataUrl) => dataUrl,
     pathForFile: (f) => f.name,
     setTitleBar: async () => true,
+    exportDisk: async (d) => ({ name: (d.title || 'disk') + '.viny' }),
+    importDisk: async () => null,
+    pendingOpen: async () => [],
+    onOpenViny: () => {},
     openExternal: async (u) => { window.open(u, '_blank'); return true; },
     mediaUrl: (id, file) => (/^(data|blob):/.test(file) ? file : `viny://media/disks/${id}/${file}`)
   };

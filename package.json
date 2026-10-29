@@ -20,6 +20,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "archive.js",
       "src/**/*",
       "build/icon.png",
       "build/icon.ico"
@@ -45,7 +46,16 @@
     },
     "portable": {
       "artifactName": "Viny-Portable-${version}.exe"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": "viny",
+        "name": "Viny Record",
+        "description": "Пластинка Viny",
+        "icon": "build/icon.ico",
+        "role": "Editor"
+      }
+    ]
   },
   "homepage": "https://github.com/A01L"
 }
